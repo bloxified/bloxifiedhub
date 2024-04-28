@@ -1,0 +1,190 @@
+-- [ BY BLOXIFIED ] 
+-- MAKE SURE TO PRESS Q TO OPEN THE UI
+
+local player = game.Players.LocalPlayer
+local playerToFind = "sub2x7gamer" -- input your username here!
+local stepsPerMinute = {}
+local stepsNotFoundWarningShown = false
+
+-- Function to find the player
+local function findPlayer()
+    return game.Players:FindFirstChild(playerToFind)
+end
+
+-- Function to update the steps per minute
+local function updateStepsPerMinute()
+    local currentTime = tick()
+    local player = findPlayer()
+    
+    if player then
+        local leaderstats = player:FindFirstChild("leaderstats")
+        if leaderstats then
+            local steps = leaderstats:FindFirstChild("Steps")
+            if steps then
+                local currentSteps = steps.Value
+                local stepsThisMinute = 0
+                
+                -- Check if this is the first update or if a minute has passed since the last update
+                if not stepsPerMinute.time or currentTime - stepsPerMinute.time >= 60 then
+                    -- If a minute has passed, reset the stepsPerMinute table
+                    stepsThisMinute = stepsPerMinute.steps or 0
+                    stepsPerMinute.steps = 0
+                    stepsPerMinute.time = currentTime
+                else
+                    -- Calculate steps made in the last minute
+                    stepsThisMinute = currentSteps - stepsPerMinute.steps
+                end
+                
+                return stepsThisMinute, currentSteps
+            else
+                if not stepsNotFoundWarningShown then
+                    warn("Steps NumberValue not found for player", playerToFind)
+                    stepsNotFoundWarningShown = true
+                end
+                return 0, 0
+            end
+        else
+            warn("Leaderstats folder not found for player", playerToFind)
+            return 0, 0
+        end
+    else
+        warn("Player", playerToFind, "not found.")
+        return 0, 0
+    end
+end
+
+-- Function to format numbers
+local function formatNumber(n)
+    local numString = tostring(n)
+    local formatted = ""
+    
+    if #numString <= 3 then
+        return numString
+    else
+        local remainder = #numString % 3
+        formatted = formatted .. string.sub(numString, 1, remainder)
+        if remainder ~= 0 then formatted = formatted .. "," end
+        for i = remainder + 1, #numString, 3 do
+            formatted = formatted .. string.sub(numString, i, i + 2)
+            if i ~= #numString - 2 then formatted = formatted .. "," end
+        end
+    end
+    
+    return formatted
+end
+
+-- Create GUI
+local gui = Instance.new("ScreenGui")
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 110)
+frame.Position = UDim2.new(0.5, -110, 1, 10)
+frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Visible = false
+frame.Parent = gui
+frame.ClipsDescendants = true
+
+local roundedCorner = Instance.new("UICorner")
+roundedCorner.CornerRadius = UDim.new(0, 10)
+roundedCorner.Parent = frame
+
+local closeButton = Instance.new("TextButton")
+closeButton.Text = "X"
+closeButton.Size = UDim2.new(0.1, 0, 0.1, 0)
+closeButton.Position = UDim2.new(0.9, 0, 0, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+closeButton.BorderSizePixel = 0
+closeButton.Font = Enum.Font.SourceSans
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 14
+closeButton.Parent = frame
+
+local closeButtonCorner = Instance.new("UICorner")
+closeButtonCorner.CornerRadius = UDim.new(0, 10)
+closeButtonCorner.Parent = closeButton
+
+local stepsLabel = Instance.new("TextLabel")
+stepsLabel.Text = "Steps per minute: 0"
+stepsLabel.Size = UDim2.new(1, 0, 0.35, 0)
+stepsLabel.Position = UDim2.new(0, 0, 0, 0)
+stepsLabel.BackgroundTransparency = 1
+stepsLabel.Font = Enum.Font.SourceSans
+stepsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+stepsLabel.TextSize = 18
+stepsLabel.Parent = frame
+
+local stepsLabelCorner = Instance.new("UICorner")
+stepsLabelCorner.CornerRadius = UDim.new(0, 10)
+stepsLabelCorner.Parent = stepsLabel
+
+local totalStepsLabel = Instance.new("TextLabel")
+totalStepsLabel.Text = "Total steps: 0"
+totalStepsLabel.Size = UDim2.new(1, 0, 0.35, 0)
+totalStepsLabel.Position = UDim2.new(0, 0, 0.35, 0)
+totalStepsLabel.BackgroundTransparency = 1
+totalStepsLabel.Font = Enum.Font.SourceSans
+totalStepsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+totalStepsLabel.TextSize = 18
+totalStepsLabel.Parent = frame
+
+local totalStepsLabelCorner = Instance.new("UICorner")
+totalStepsLabelCorner.CornerRadius = UDim.new(0, 10)
+totalStepsLabelCorner.Parent = totalStepsLabel
+
+local resetButton = Instance.new("TextButton")
+resetButton.Text = "Reset"
+resetButton.Size = UDim2.new(1, 0, 0.2, 0)
+resetButton.Position = UDim2.new(0, 0, 0.8, 0)
+resetButton.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+resetButton.BorderSizePixel = 0
+resetButton.Font = Enum.Font.SourceSans
+resetButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetButton.TextSize = 16
+resetButton.Parent = frame
+
+local resetButtonCorner = Instance.new("UICorner")
+resetButtonCorner.CornerRadius = UDim.new(0, 10)
+resetButtonCorner.Parent = resetButton
+
+local function resetSteps()
+    local totalSteps = stepsPerMinute.totalSteps or 0
+    totalStepsLabel.Text = "Total steps: " .. formatNumber(totalSteps)
+    stepsPerMinute.steps = totalSteps
+    stepsPerMinute.time = tick()
+end
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local stepsThisMinute, currentSteps = updateStepsPerMinute()
+    stepsLabel.Text = "Steps per minute: " .. string.format("%.2f", stepsThisMinute)
+    stepsPerMinute.totalSteps = currentSteps
+    
+    -- Reset steps count every minute
+    if not stepsPerMinute.time or tick() - stepsPerMinute.time >= 60 then
+        resetSteps()
+    end
+end)
+
+resetButton.MouseButton1Click:Connect(resetSteps)
+
+closeButton.MouseButton1Click:Connect(function()
+    game:GetService("TweenService"):Create(frame, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -110, 1, 10)}):Play()
+    wait(0.3)
+    frame.Visible = false
+end)
+
+-- Toggle the GUI when "Q" key is pressed
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Q then
+        if frame.Visible then
+            game:GetService("TweenService"):Create(frame, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -110, 1, 10)}):Play()
+            wait(0.3)
+            frame.Visible = false
+        else
+            frame.Visible = true
+            game:GetService("TweenService"):Create(frame, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -110, 0.5, -55)}):Play()
+        end
+    end
+end)
