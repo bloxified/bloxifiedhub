@@ -34,25 +34,22 @@ end
 
 -- Function to start collecting orbs
 local function startCollection()
-    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1841, 216, 5961)
-    wait(1) -- Wait for 1 second before collecting orbs
-    collectOrbs()
+    while true do
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1841, 216, 5961)
+        wait(1) -- Wait for 1 second before collecting orbs
+        collectOrbs()
+    end
 end
 
 -- Run the function to start collecting orbs
 startCollection()
 
--- Function to run the main script and continuously check if the player is still in the game
-local function runScriptLoop()
-    while true do
-        wait(1)
-        if game.Players.LocalPlayer.Parent == nil then
-            print("Player left the game, exiting script.")
-            break
-        end
-        startCollection()
-    end
-end
+-- Re-run the script when the character respawns
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    startCollection()
+end)
 
--- Run the script loop
-runScriptLoop()
+-- Reload the script after teleporting
+queue_on_teleport([[
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulator99/main/speedcity'))()
+]])
