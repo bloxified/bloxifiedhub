@@ -7,7 +7,7 @@ local function collectOrbs()
             local outside = orb:FindFirstChild("Outside")
             if orb.Name == "Trillionaire" and outside then
                 game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(outside.Position)
-                wait(1) -- Adjust the wait time between each teleport (in seconds)
+                wait(0.1) -- Adjust the wait time between each teleport (in seconds)
                 orb:Destroy()
                 orbCollected = true
                 break
@@ -27,7 +27,7 @@ local function collectOrbs()
     else
         print("TrillionaireOrbs folder not found ❌")
     end
-    wait(1) -- Adjust the wait time before collecting the next orb (in seconds)
+    wait(0.1) -- Adjust the wait time before collecting the next orb (in seconds)
     collectOrbs()
 end
 
