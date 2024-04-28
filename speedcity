@@ -7,7 +7,7 @@ local function collectOrbs()
             local outside = orb:FindFirstChild("Outside")
             if orb.Name == "Trillionaire" and outside then
                 game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(outside.Position)
-                wait(0.1) -- Adjust the wait time between each teleport (in seconds)
+                wait(1) -- Adjust the wait time between each teleport (in seconds)
                 orb:Destroy()
                 orbCollected = true
                 break
@@ -27,13 +27,13 @@ local function collectOrbs()
     else
         print("TrillionaireOrbs folder not found ❌")
     end
-    wait(0.1) -- Adjust the wait time before collecting the next orb (in seconds)
+    wait(1) -- Adjust the wait time before collecting the next orb (in seconds)
     collectOrbs()
 end
 
 local function startCollection()
     game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1841, 216, 5961)
-    wait(0.1) -- Wait for 1 second before collecting orbs
+    wait(1) -- Wait for 1 second before collecting orbs
     collectOrbs()
 end
 
@@ -47,7 +47,17 @@ game:GetService("Players").PlayerAdded:Connect(function(player)
 end)
 
 -- Queue a script to run after teleporting
-game:GetService("TeleportService").TeleportInit:Connect(function()
-    game:GetService("TeleportService").TeleportInit:Wait()
-    loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulator99/main/speedcity'))()
-end)
+local function queue_on_teleport(script)
+    local success, errorMsg = pcall(function()
+        game:GetService("TeleportService").TeleportInit:Connect(function()
+            loadstring(script)()
+        end)
+    end)
+    if not success then
+        warn("Failed to queue script for teleport: " .. errorMsg)
+    end
+end
+
+queue_on_teleport([[
+loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulator99/main/speedcity'))()
+]])
