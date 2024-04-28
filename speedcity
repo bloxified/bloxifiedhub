@@ -33,7 +33,7 @@ end
 
 local function startCollection()
     game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1841, 216, 5961)
-    wait(1) -- Wait for 1 second before collecting orbs
+    wait(0.1) -- Wait for 1 second before collecting orbs
     collectOrbs()
 end
 
