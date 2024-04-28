@@ -9,5 +9,5 @@ loadstrings to my scripts (speed city)
 -- speed counter
 loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulator99/main/speedcounter'))()
 
--- speed farm (req. macro)
+-- step farm (req. macro)
 loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulator99/main/speedcity'))()
