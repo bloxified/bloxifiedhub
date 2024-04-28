@@ -1,0 +1,140 @@
+local HttpService = game:GetService("HttpService")
+
+-- GUI
+local guiEnabled = false
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Name = "DupeTrailGUI"
+
+local Frame = Instance.new("Frame")
+Frame.Parent = ScreenGui
+Frame.Size = UDim2.new(0, 200, 0, 100)
+Frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Frame.BorderSizePixel = 0
+Frame.Visible = false
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = Frame
+
+local Title = Instance.new("TextLabel")
+Title.Parent = Frame
+Title.Size = UDim2.new(1, 0, 0.2, 0)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+Title.BorderSizePixel = 0
+Title.Text = "Dupe Trails"
+Title.Font = Enum.Font.GothamBold
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
+
+local Button = Instance.new("TextButton")
+Button.Parent = Frame
+Button.Size = UDim2.new(0.8, 0, 0.4, 0)
+Button.Position = UDim2.new(0.1, 0, 0.4, 0)
+Button.BackgroundColor3 = Color3.fromRGB(0, 153, 51)
+Button.BorderSizePixel = 0
+Button.Text = "Enable"
+Button.Font = Enum.Font.GothamBold
+Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+Button.TextSize = 18
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = Frame
+CloseButton.Size = UDim2.new(0.1, 0, 0.1, 0)
+CloseButton.Position = UDim2.new(0.9, 0, 0, 0)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "X"
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 18
+
+local buttonClicked = false
+
+Button.MouseButton1Click:Connect(function()
+    buttonClicked = not buttonClicked
+    guiEnabled = not guiEnabled
+    
+    if buttonClicked then
+        if guiEnabled then
+            Button.Text = "Disable"
+            Button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            print("Script enabled")
+        else
+            Button.Text = "Enable"
+            Button.BackgroundColor3 = Color3.fromRGB(0, 153, 51)
+            print("Script disabled")
+        end
+    end
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    Frame.Visible = false
+end)
+
+-- Function to duplicate trails
+local function dupeTrails()
+    local player = game.Players.LocalPlayer
+    local replicatedStorage = game:GetService("ReplicatedStorage")
+    local tradeEvent = replicatedStorage:WaitForChild("TradeTrailDestroy")
+    
+    -- Function to check if the trade is finished
+    local function isTradeFinished(tradeSession)
+        local player1Accept = tradeSession.Player1Accept.Value
+        local player2Accept = tradeSession.Player2Accept.Value
+        return player1Accept and player2Accept
+    end
+    
+    -- Function to duplicate the trail
+    local function duplicateTrail(trailName)
+        local trailTool = player.Backpack:FindFirstChild(trailName)
+        if trailTool then
+            trailTool.Parent = player.Character -- Move the trail to the player's character
+            print("Duplicating trail: " .. trailName)
+        end
+    end
+    
+    -- Intercept the TradeTrailDestroy event to prevent the trail from being destroyed
+    tradeEvent.OnClientEvent:Connect(function(trailName)
+        if guiEnabled then
+            local trailTool = player.Backpack:FindFirstChild(trailName)
+            if trailTool then
+                trailTool.Parent = player.Backpack -- Move the trail back to the player's inventory
+            end
+            return
+        end
+    end)
+    
+    -- Main loop
+    while true do
+        wait(1)
+        if guiEnabled then
+            for _, tradeSession in ipairs(workspace.TradeSessions:GetChildren()) do
+                if tradeSession:IsA("Folder") then
+                    local tradeInfo = tradeSession:FindFirstChild("TradeSession")
+                    if tradeInfo then
+                        local player1Trails = tradeInfo:FindFirstChild("Player1Trails")
+                        local player2Trails = tradeInfo:FindFirstChild("Player2Trails")
+                        if player1Trails and player2Trails then
+                            local player1TrailName = player1Trails.Value
+                            local player2TrailName = player2Trails.Value
+                            if player1TrailName and player2TrailName then
+                                if isTradeFinished(tradeInfo) then
+                                    duplicateTrail(player1TrailName)
+                                    duplicateTrail(player2TrailName)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Run the dupe function
+dupeTrails()
+
+-- Show the GUI
+Frame.Visible = true
