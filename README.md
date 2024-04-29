@@ -11,3 +11,6 @@ loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulato
 
 -- step farm (req. macro)
 loadstring(game:HttpGet('https://raw.githubusercontent.com/bloxified/petsimulator99/main/speedcity'))()
+
+
+some may not be working, sorry for the inconvenience. please use raw if loadstring isn't working for you, i'm working on a fix. 
