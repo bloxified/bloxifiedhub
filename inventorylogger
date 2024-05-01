@@ -1,0 +1,75 @@
+print("💫 Inventory Logger V1.32")
+wait(2.5)
+print("🚀 Inventory Logger Initialized, Enjoy!")
+wait(1)
+
+local Players = game:GetService("Players")
+local TrailNames = {
+    ["Rainbow Shaggy"] = true,
+    ["Money"] = true,
+    ["Gear"] = true,
+    ["Testing"] = true,
+    ["Beach Crate"] = true,
+    ["Holiday Crate"] = true
+}
+
+-- Add more as follows 
+
+-- Function to print trails for a player
+local function printPlayerTrails(player)
+    local trailsFolder = player:FindFirstChild("trails")
+    if trailsFolder then
+        print(player.Name .. " Trails:")
+        for _, trail in ipairs(trailsFolder:GetChildren()) do
+            print("🌟 " .. trail.Name)
+        end
+        print("-------")
+    else
+        print(player.Name .. " has no trails.")
+    end
+end
+
+-- Function to check trails for all players
+local function checkAllPlayerTrails()
+    for _, player in ipairs(Players:GetPlayers()) do
+        printPlayerTrails(player)
+    end
+end
+
+-- Function to check if the player has specific trails
+local function checkSpecialTrails()
+    local specialTrails = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        local trailsFolder = player:FindFirstChild("trails")
+        if trailsFolder then
+            for trailName, _ in pairs(TrailNames) do
+                local trail = trailsFolder:FindFirstChild(trailName)
+                if trail then
+                    if not specialTrails[trailName] then
+                        specialTrails[trailName] = {}
+                    end
+                    table.insert(specialTrails[trailName], player.Name)
+                end
+            end
+        end
+    end
+    
+    for trailName, players in pairs(specialTrails) do
+        print("🎉 " .. #players .. " " .. trailName .. " - " .. table.concat(players, ", "))
+    end
+    
+    print("-------")
+end
+
+-- Check trails for all players when a new player joins
+Players.PlayerAdded:Connect(function(player)
+    print("🔍 Checking trails for " .. player.Name .. "...")
+    printPlayerTrails(player)
+end)
+
+-- Check trails for all existing players when the script starts
+print("🔍 Checking trails for all players...")
+checkAllPlayerTrails()
+
+-- Check for special trails
+checkSpecialTrails()
