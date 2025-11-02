@@ -1,0 +1,434 @@
+--// StarterPlayerScripts/HalloweenBGSIConsole.lua
+-- BGSI Trick or Treat Console
+-- Creates a stylized UI console and uses PathfindingService to walk the player
+-- to each Activation.Root where Activation.Active == true, waiting 4s between visits.
+
+local Players = game:GetService("Players")
+local PathfindingService = game:GetService("PathfindingService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- Ensure character references update on respawn
+local function getCharacterAndHumanoid()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local humanoid = char:WaitForChild("Humanoid")
+	local hrp = char:WaitForChild("HumanoidRootPart")
+	return char, humanoid, hrp
+end
+
+local housesFolder = workspace:WaitForChild("HalloweenEvent"):WaitForChild("Houses")
+
+---------------------------------------------------------------------
+-- UI BUILD
+---------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BGSI_TrickOrTreat_Console"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.IgnoreGuiInset = true
+
+-- Main container
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0, 420, 0, 280)
+main.Position = UDim2.new(0.03, 0, 0.55, 0)
+main.BackgroundColor3 = Color3.fromRGB(12, 10, 14)
+main.BorderSizePixel = 0
+main.Parent = screenGui
+main.ClipsDescendants = true
+
+local mainCorner = Instance.new("UICorner", main)
+mainCorner.CornerRadius = UDim.new(0, 10)
+
+-- Outer glow stroke
+local outerStroke = Instance.new("UIStroke", main)
+outerStroke.Color = Color3.fromRGB(255, 120, 0)
+outerStroke.Thickness = 2
+outerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+-- Title bar
+local titleBar = Instance.new("Frame", main)
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 34)
+titleBar.BackgroundTransparency = 1
+
+local title = Instance.new("TextLabel", titleBar)
+title.Size = UDim2.new(1, -60, 1, 0)
+title.Position = UDim2.new(0, 12, 0, 0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.Text = "BGSI Trick or Treat Console"
+title.TextColor3 = Color3.fromRGB(220, 150, 20)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.RichText = true
+
+-- Flicker effect helper
+task.spawn(function()
+	while true do
+		local t1 = TweenService:Create(title, TweenInfo.new(0.12, Enum.EasingStyle.Linear), {TextColor3 = Color3.fromRGB(255, 170, 45)})
+		local t2 = TweenService:Create(title, TweenInfo.new(0.09, Enum.EasingStyle.Linear), {TextColor3 = Color3.fromRGB(200, 120, 25)})
+		t1:Play(); t1.Completed:Wait()
+		task.wait(0.05)
+		t2:Play(); t2.Completed:Wait()
+		task.wait(1.2)
+	end
+end)
+
+-- Small subtitle / status
+local subtitle = Instance.new("TextLabel", titleBar)
+subtitle.Size = UDim2.new(0, 40, 1, 0)
+subtitle.AnchorPoint = Vector2.new(1, 0)
+subtitle.Position = UDim2.new(1, -12, 0, 0)
+subtitle.BackgroundTransparency = 1
+subtitle.Font = Enum.Font.Code
+subtitle.TextSize = 12
+subtitle.Text = "BGSI"
+subtitle.TextColor3 = Color3.fromRGB(120, 255, 170)
+subtitle.TextXAlignment = Enum.TextXAlignment.Right
+
+-- Console area
+local consoleFrame = Instance.new("Frame", main)
+consoleFrame.Name = "Console"
+consoleFrame.Size = UDim2.new(1, -24, 1, -84)
+consoleFrame.Position = UDim2.new(0, 12, 0, 40)
+consoleFrame.BackgroundColor3 = Color3.fromRGB(7, 6, 10)
+consoleFrame.BorderSizePixel = 0
+
+local consoleCorner = Instance.new("UICorner", consoleFrame)
+consoleCorner.CornerRadius = UDim.new(0, 6)
+
+-- Scrolling frame for logs
+local scroll = Instance.new("ScrollingFrame", consoleFrame)
+scroll.Name = "LogScroll"
+scroll.Size = UDim2.new(1, -12, 1, -12)
+scroll.Position = UDim2.new(0, 6, 0, 6)
+scroll.BackgroundTransparency = 1
+scroll.ScrollBarThickness = 6
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
+
+local uiList = Instance.new("UIListLayout", scroll)
+uiList.Padding = UDim.new(0, 6)
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+
+local uiPadding = Instance.new("UIPadding", scroll)
+uiPadding.PaddingTop = UDim.new(0, 6)
+uiPadding.PaddingBottom = UDim.new(0, 6)
+uiPadding.PaddingLeft = UDim.new(0, 6)
+uiPadding.PaddingRight = UDim.new(0, 6)
+
+-- Controls area
+local controls = Instance.new("Frame", main)
+controls.Name = "Controls"
+controls.Size = UDim2.new(1, -24, 0, 48)
+controls.Position = UDim2.new(0, 12, 1, -64)
+controls.BackgroundTransparency = 1
+
+local startStopBtn = Instance.new("TextButton", controls)
+startStopBtn.Size = UDim2.new(0, 140, 0, 36)
+startStopBtn.Position = UDim2.new(0, 6, 0, 6)
+startStopBtn.Font = Enum.Font.GothamBold
+startStopBtn.TextSize = 14
+startStopBtn.Text = "START"
+startStopBtn.TextColor3 = Color3.fromRGB(8,8,8)
+startStopBtn.BackgroundColor3 = Color3.fromRGB(255,120,0)
+startStopBtn.AutoButtonColor = false
+local btnCorner = Instance.new("UICorner", startStopBtn)
+btnCorner.CornerRadius = UDim.new(0, 8)
+
+local stopBtnGlow = Instance.new("UIStroke", startStopBtn)
+stopBtnGlow.Color = Color3.fromRGB(255, 60, 60)
+stopBtnGlow.Thickness = 0
+
+-- Small info labels
+local statusLabel = Instance.new("TextLabel", controls)
+statusLabel.Size = UDim2.new(0, 230, 0, 18)
+statusLabel.Position = UDim2.new(0, 154, 0, 6)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.Code
+statusLabel.TextSize = 14
+statusLabel.Text = "Status: Idle"
+statusLabel.TextColor3 = Color3.fromRGB(180, 255, 180)
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local countLabel = Instance.new("TextLabel", controls)
+countLabel.Size = UDim2.new(0, 230, 0, 18)
+countLabel.Position = UDim2.new(0, 154, 0, 26)
+countLabel.BackgroundTransparency = 1
+countLabel.Font = Enum.Font.Code
+countLabel.TextSize = 12
+countLabel.Text = "Targets: 0"
+countLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
+countLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+---------------------------------------------------------------------
+-- Console log helper
+---------------------------------------------------------------------
+local function addConsoleLine(text, color, persistSeconds)
+	color = color or Color3.fromRGB(255, 170, 60)
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -12, 0, 18)
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.Code
+	lbl.TextSize = 14
+	lbl.TextColor3 = color
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Text = text
+	lbl.Parent = scroll
+
+	-- small typed effect (simulate by briefly changing TextTransparency)
+	lbl.TextTransparency = 1
+	TweenService:Create(lbl, TweenInfo.new(0.22), {TextTransparency = 0}):Play()
+
+	-- Scroll to bottom
+	task.defer(function()
+		wait(0.06)
+		scroll.CanvasPosition = Vector2.new(0, math.huge)
+	end)
+
+	-- Optional fade out older lines after a long time to keep console tidy
+	if persistSeconds then
+		task.delay(persistSeconds, function()
+			if lbl and lbl.Parent then
+				TweenService:Create(lbl, TweenInfo.new(0.6), {TextTransparency = 1}):Play()
+				task.wait(0.6)
+				if lbl and lbl.Parent then lbl:Destroy() end
+			end
+		end)
+	end
+end
+
+---------------------------------------------------------------------
+-- Dragging for the main panel
+---------------------------------------------------------------------
+local dragging, dragStart, startPos
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Pathfinding / walking logic
+---------------------------------------------------------------------
+local isRunning = false
+local walkingCoroutine = nil
+
+-- Build current target list (scans houses each time to remain dynamic)
+local function getTargets()
+	local list = {}
+	for _, house in ipairs(housesFolder:GetChildren()) do
+		if house:IsA("Model") then
+			local activation = house:FindFirstChild("Activation")
+			if activation and activation:IsA("Model") then
+				local root = activation:FindFirstChild("Root")
+				local activeVal = activation:FindFirstChild("Active")
+				if root and root:IsA("BasePart") and activeVal and activeVal:IsA("BoolValue") then
+					table.insert(list, {root = root, active = activeVal})
+				end
+			end
+		end
+	end
+	return list
+end
+
+-- Helper: find nearest active target from position
+local function getNearestActive(position, targets)
+	local nearest, nearestDist, idx
+	for i, info in ipairs(targets) do
+		if info.active.Value and info.root and info.root:IsDescendantOf(workspace) then
+			local d = (info.root.Position - position).Magnitude
+			if not nearestDist or d < nearestDist then
+				nearest = info
+				nearestDist = d
+				idx = i
+			end
+		end
+	end
+	return nearest, idx
+end
+
+-- Walk to target using PathfindingService
+local function walkToTarget(humanoid, hrp, targetPart)
+	if not targetPart or not targetPart:IsDescendantOf(workspace) then return false end
+
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		AgentJumpHeight = 7,
+		AgentMaxSlope = 45
+	})
+	local startPos = hrp.Position
+	local endPos = targetPart.Position
+	local success, err = pcall(function()
+		path:ComputeAsync(startPos, endPos)
+	end)
+	if not success then
+		addConsoleLine("[BGSI] Path compute error, fallback.", Color3.fromRGB(255, 100, 100), 10)
+	end
+
+	if path.Status == Enum.PathStatus.Success then
+		local waypoints = path:GetWaypoints()
+		for _, wp in ipairs(waypoints) do
+			if not isRunning then return false end
+			humanoid:MoveTo(wp.Position)
+			local reached = humanoid.MoveToFinished:Wait()
+			-- if failed to reach waypoint, try next or break
+			if not reached then
+				-- small pause and continue (prevents instant bail on small obstacles)
+				task.wait(0.25)
+			end
+		end
+		-- final small move to center
+		humanoid:MoveTo(endPos)
+		humanoid.MoveToFinished:Wait()
+		return true
+	else
+		-- fallback attempt: direct MoveTo
+		addConsoleLine("[BGSI] No walkable path — attempting direct move.", Color3.fromRGB(255, 160, 80), 8)
+		humanoid:MoveTo(endPos)
+		local ok = humanoid.MoveToFinished:Wait()
+		if ok then return true end
+		-- last resort teleport slightly above
+		pcall(function()
+			local char = humanoid.Parent
+			local rootPart = char:FindFirstChild("HumanoidRootPart")
+			if rootPart then
+				rootPart.CFrame = CFrame.new(endPos + Vector3.new(0, 3, 0))
+			end
+		end)
+		return true
+	end
+end
+
+-- Main walker loop
+local function walkerLoop()
+	local char, humanoid, hrp = getCharacterAndHumanoid()
+	addConsoleLine("[BGSI] Console started. Scanning for targets...", Color3.fromRGB(120, 255, 170), 8)
+
+	while isRunning do
+		-- refresh targets each loop so newly activated houses are included
+		local targets = getTargets()
+		local activeCount = 0
+		for _, t in ipairs(targets) do if t.active.Value then activeCount = activeCount + 1 end end
+		countLabel.Text = "Targets: " .. tostring(activeCount)
+
+		local nearest, idx = getNearestActive(hrp.Position, targets)
+		if not nearest then
+			statusLabel.Text = "Status: Idle — no active targets"
+			addConsoleLine("[BGSI] No active activations found. Re-scanning...", Color3.fromRGB(180, 180, 180), 6)
+			-- wait a short time before rescan, but remain responsive to stop
+			for _ = 1, 20 do
+				if not isRunning then break end
+				task.wait(0.25)
+			end
+			if not isRunning then break end
+			continue
+		end
+
+		-- Announce and walk
+		local houseName = nearest.root.Parent and nearest.root.Parent.Name or "UnknownHouse"
+		statusLabel.Text = "Status: Walking → " .. houseName
+		addConsoleLine(string.format("[BGSI] Walking to %s (%.1f studs)...", houseName, (nearest.root.Position - hrp.Position).Magnitude), Color3.fromRGB(255, 170, 80), 10)
+
+		local ok = walkToTarget(humanoid, hrp, nearest.root)
+		if not isRunning then break end
+
+		if ok then
+			addConsoleLine("[BGSI] Arrived: " .. houseName, Color3.fromRGB(120, 255, 170), 10)
+			statusLabel.Text = "Status: Arrived at " .. houseName .. " — Waiting 4s"
+			-- wait 4 seconds before searching next target
+			for i = 1, 16 do
+				if not isRunning then break end
+				task.wait(0.25)
+			end
+		else
+			addConsoleLine("[BGSI] Failed to reach " .. houseName .. " — skipping", Color3.fromRGB(255, 100, 100), 8)
+		end
+
+		-- continue: the loop will rescan and find next nearest active
+		task.wait(0.06)
+	end
+
+	statusLabel.Text = "Status: Stopped"
+	addConsoleLine("[BGSI] Console stopped.", Color3.fromRGB(200, 120, 25), 6)
+end
+
+---------------------------------------------------------------------
+-- Button interactions
+---------------------------------------------------------------------
+local function setButtonActive(state)
+	if state then
+		startStopBtn.Text = "STOP"
+		startStopBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+		stopBtnGlow.Thickness = 2
+	else
+		startStopBtn.Text = "START"
+		startStopBtn.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
+		stopBtnGlow.Thickness = 0
+	end
+end
+
+startStopBtn.MouseButton1Click:Connect(function()
+	isRunning = not isRunning
+	setButtonActive(isRunning)
+	if isRunning then
+		-- if character respawns during run, walkerLoop uses fresh references each cycle via getCharacterAndHumanoid
+		walkingCoroutine = task.spawn(function() walkerLoop() end)
+	else
+		-- stopping will cause loops to exit naturally
+	end
+end)
+
+-- Hover animations
+startStopBtn.MouseEnter:Connect(function()
+	TweenService:Create(startStopBtn, TweenInfo.new(0.18), {BackgroundTransparency = 0.02}):Play()
+end)
+startStopBtn.MouseLeave:Connect(function()
+	TweenService:Create(startStopBtn, TweenInfo.new(0.18), {BackgroundTransparency = 0}):Play()
+end)
+
+---------------------------------------------------------------------
+-- Auto-scroll canvas when new items appear (ensure bottom visible)
+---------------------------------------------------------------------
+uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	scroll.CanvasPosition = Vector2.new(0, math.huge)
+end)
+
+-- initial console messages
+addConsoleLine("[BGSI] UI ready. Press START to begin.", Color3.fromRGB(255, 170, 60), 12)
+countLabel.Text = "Targets: 0"
+statusLabel.Text = "Status: Idle"
+
+---------------------------------------------------------------------
+-- Clean up if player leaves / respawn handling (optional)
+---------------------------------------------------------------------
+player.CharacterAdded:Connect(function()
+	-- small delay to let character initialise then update labels if active
+	task.delay(0.6, function()
+		if isRunning then
+			addConsoleLine("[BGSI] Character respawned — resuming...", Color3.fromRGB(180, 255, 180), 6)
+		end
+	end)
+end)
+
+print("BGSI Trick or Treat Console loaded.")
